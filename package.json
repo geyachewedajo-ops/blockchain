@@ -1,0 +1,13 @@
+{
+  "name": "wedajo-chain",
+  "version": "1.0.0",
+  "description": "A learning blockchain built with Node.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
