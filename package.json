@@ -1,5 +1,5 @@
 {
-  "name": "wedajo-chain",
+  "name": "blockchain",
   "version": "1.0.0",
   "description": "A learning blockchain built with Node.js",
   "main": "index.js",
