@@ -1,0 +1,20 @@
+# Private wallet files
+wallet.json
+receiver.json
+
+# Environment secrets
+.env
+.env.*
+
+# Backups
+*.backup
+*.backup*
+*.before-*
+*.step*-backup
+
+# Dependencies and generated files
+node_modules/
+coverage/
+
+# Local server backups
+server.js.wallet-backup
