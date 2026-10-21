@@ -10,5 +10,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@noble/curves": "^2.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
 }

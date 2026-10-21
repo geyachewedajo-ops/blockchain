@@ -71,6 +71,15 @@ const page = `<!DOCTYPE html>
   <p class="muted" id="updated">Not yet refreshed</p>
 
   <div class="section">
+    <h2>Create a wallet</h2>
+    <div class="card">
+      <p class="muted">Generate a new demo wallet address.</p>
+      <button id="createWalletButton" type="button">Create wallet</button>
+      <p id="walletResult" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>Wallet balance checker</h2>
     <div class="card">
       <label for="address">Public wallet address</label>
@@ -90,6 +99,7 @@ const page = `<!DOCTYPE html>
     <div id="blocks">Loading blockchain...</div>
   </div>
 
+  <script src="/browser-wallet.js"></script>
   <script>
     const byId = id => document.getElementById(id);
 
@@ -181,6 +191,50 @@ const page = `<!DOCTYPE html>
       }
     }
 
+    async function createWallet() {
+      const output = byId('walletResult');
+      output.textContent = 'Creating wallet in this browser...';
+      output.className = 'muted';
+
+      try {
+        if (!window.BrowserWallet) {
+          throw new Error('Wallet library did not load. Refresh the page and try again.');
+        }
+
+        const wallet = window.BrowserWallet.create();
+
+        // Save this demo wallet locally in this browser only.
+        localStorage.setItem('blockchainWallet', JSON.stringify(wallet));
+
+        byId('address').value = wallet.publicKey;
+        output.replaceChildren();
+
+        addText(output, 'p', 'Wallet created in your browser.');
+        addText(output, 'label', 'Public key (address):');
+        addText(output, 'textarea', wallet.publicKey);
+        output.lastChild.readOnly = true;
+        output.lastChild.rows = 4;
+
+        addText(output, 'label', 'Private key — keep it secret:');
+        addText(output, 'textarea', wallet.privateKey);
+        output.lastChild.readOnly = true;
+        output.lastChild.rows = 2;
+        output.lastChild.autocomplete = 'off';
+
+        addText(
+          output,
+          'p',
+          'Save your private key somewhere secure. It is stored in this browser for this educational demo. Anyone who obtains it can control this wallet.',
+          'muted'
+        );
+
+        output.className = 'valid';
+      } catch (error) {
+        output.textContent = error.message || 'Wallet creation failed.';
+        output.className = 'error';
+      }
+    }
+
     async function checkBalance() {
       const address = byId('address').value.trim();
       const output = byId('balanceResult');
@@ -206,6 +260,7 @@ const page = `<!DOCTYPE html>
     }
 
     byId('refreshButton').addEventListener('click', loadChain);
+    byId('createWalletButton').addEventListener('click', createWallet);
     byId('balanceButton').addEventListener('click', checkBalance);
     byId('address').addEventListener('keydown', event => {
       if (event.key === 'Enter') checkBalance();
@@ -411,6 +466,18 @@ const server = http.createServer((req, res) => {
       }
     });
 
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.split('?')[0] === '/browser-wallet.js') {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const file = path.join(__dirname, 'public', 'browser-wallet.js');
+    res.writeHead(200, {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(fs.readFileSync(file));
     return;
   }
 
