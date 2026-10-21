@@ -264,5 +264,3 @@ test('rejects a forged mining reward even when the block hash is recalculated', 
 
   assert.equal(blockchain.isChainValid(), false);
 });
-
-
