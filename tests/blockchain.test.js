@@ -254,3 +254,23 @@ test('allows a miner to send coins after receiving a reward', () => {
   assert.equal(bc.getBalance(receiver.publicKey), 20);
   assert.equal(bc.isChainValid(), true);
 });
+
+test('rejects a forged mining reward even when the block hash is recalculated', () => {
+  const blockchain = new Blockchain();
+
+  const block = blockchain.mineBlock('miner-address', 'Mining test');
+  block.reward.amount = 500;
+  block.hash = block.calculateBlockHash();
+
+  assert.equal(blockchain.isChainValid(), false);
+});
+
+test('rejects a forged mining reward even when the block hash is recalculated', () => {
+  const blockchain = new Blockchain();
+
+  const block = blockchain.mineBlock('miner-address', 'Mining test');
+  block.reward.amount = 500;
+  block.hash = block.calculateBlockHash();
+
+  assert.equal(blockchain.isChainValid(), false);
+});

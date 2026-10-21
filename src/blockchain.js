@@ -109,6 +109,26 @@ class Blockchain {
     for (let i = 0; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
 
+      // The genesis block must not create mining rewards.
+      if (i === 0 && currentBlock.reward != null) {
+        return false;
+      }
+
+      // Validate every mining reward, even if its hash was recalculated.
+      if (currentBlock.reward != null) {
+        const reward = currentBlock.reward;
+
+        if (
+          typeof reward !== 'object' ||
+          Array.isArray(reward) ||
+          typeof reward.to !== 'string' ||
+          !reward.to.trim() ||
+          reward.amount !== this.miningReward
+        ) {
+          return false;
+        }
+      }
+
       if (currentBlock.hash !== currentBlock.calculateBlockHash()) {
         return false;
       }
