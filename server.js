@@ -359,11 +359,11 @@ const server = http.createServer((req, res) => {
         );
         transaction.signature = payload.signature;
 
-        const block = blockchain.addBlock(transaction);
+        const queuedTransaction = blockchain.addTransaction(transaction);
 
-        return sendJSON(201, {
-          message: 'Signed transaction added successfully',
-          block
+        return sendJSON(202, {
+          message: 'Signed transaction accepted and queued for mining',
+          transaction: queuedTransaction
         });
       } catch (error) {
         if (!res.headersSent && !res.destroyed) {
@@ -390,10 +390,12 @@ const server = http.createServer((req, res) => {
       try {
         const payload = JSON.parse(body);
 
-        const block = blockchain.mineBlock(
-          payload && payload.minerAddress,
-          { message: 'Block mined through API' }
-        );
+        const block = blockchain.pendingTransactions.length > 0
+          ? blockchain.minePendingTransactions(payload && payload.minerAddress)
+          : blockchain.mineBlock(
+              payload && payload.minerAddress,
+              { message: 'Block mined through API' }
+            );
 
         return sendJSON(201, {
           message: 'Block mined successfully',
