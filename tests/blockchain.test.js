@@ -607,6 +607,43 @@ test('rejects an empty blockchain', () => {
   assert.equal(bc.isChainValid(), false);
 });
 
+test('rejects a batch that collectively overspends a sender', () => {
+  const bc = new Blockchain();
+  const sender = new Wallet();
+  const recipient1 = new Wallet();
+  const recipient2 = new Wallet();
+
+  bc.mineBlock(sender.publicKey, 'Fund sender');
+
+  const tx1 = new Transaction(
+    sender.publicKey,
+    recipient1.publicKey,
+    30
+  );
+  tx1.signTransaction(sender);
+
+  const tx2 = new Transaction(
+    sender.publicKey,
+    recipient2.publicKey,
+    30
+  );
+  tx2.signTransaction(sender);
+
+  const previousBlock = bc.getLatestBlock();
+  const block = new Block(
+    previousBlock.index + 1,
+    new Date().toISOString(),
+    [tx1, tx2],
+    previousBlock.hash
+  );
+
+  block.mineBlock(bc.miningDifficulty);
+  bc.chain.push(block);
+
+  assert.equal(block.hash, block.calculateBlockHash());
+  assert.equal(bc.isChainValid(), false);
+});
+
 test('rejects an empty transaction batch', () => {
   const bc = new Blockchain();
   bc.addBlock([]);
