@@ -383,3 +383,285 @@ test('rejects a repeated mining reward in a later block', () => {
 
   assert.equal(blockchain.isChainValid(), false);
 });
+
+
+test('queues a valid signed transaction', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund miner');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+
+  const queued = bc.addTransaction(tx);
+
+  assert.equal(bc.pendingTransactions.length, 1);
+  assert.equal(queued.amount, 10);
+  assert.equal(queued.verifySignature(), true);
+});
+
+test('rejects an unsigned pending transaction', () => {
+  const bc = new Blockchain();
+  const wallet = new Wallet();
+  const recipient = new Wallet();
+  const tx = new Transaction(wallet.publicKey, recipient.publicKey, 1);
+
+  assert.throws(() => bc.addTransaction(tx), /signature/i);
+  assert.equal(bc.pendingTransactions.length, 0);
+});
+
+test('rejects duplicate pending transactions', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund miner');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+
+  bc.addTransaction(tx);
+  assert.throws(() => bc.addTransaction(tx), /already pending/i);
+  assert.equal(bc.pendingTransactions.length, 1);
+});
+
+test('addBlock rejects an already-mined transaction', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund sender');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+  bc.mineBlock(miner.publicKey, tx);
+
+  assert.throws(() => bc.addBlock(tx), /already mined/i);
+  assert.equal(bc.isChainValid(), true);
+});
+
+test('mineBlock rejects an already-mined transaction', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund sender');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+  bc.mineBlock(miner.publicKey, tx);
+
+  assert.throws(
+    () => bc.mineBlock(miner.publicKey, tx),
+    /already mined/i
+  );
+  assert.equal(bc.isChainValid(), true);
+});
+
+test('rejects a transaction that has already been mined', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund sender');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+
+  bc.mineBlock(miner.publicKey, tx);
+
+  assert.throws(
+    () => bc.addTransaction(tx),
+    /already mined/i
+  );
+});
+
+test('rejects a replayed transaction inserted directly into a later block', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund sender');
+
+  const recipient = new Wallet();
+  const tx = new Transaction(miner.publicKey, recipient.publicKey, 10);
+  tx.signTransaction(miner);
+
+  bc.mineBlock(miner.publicKey, tx);
+
+  const previousBlock = bc.getLatestBlock();
+  const replay = new Transaction(tx.from, tx.to, tx.amount);
+  replay.signature = tx.signature;
+
+  const duplicateBlock = new Block(
+    previousBlock.index + 1,
+    new Date().toISOString(),
+    replay,
+    previousBlock.hash
+  );
+
+  duplicateBlock.reward = {
+    to: miner.publicKey,
+    amount: bc.miningReward,
+  };
+  duplicateBlock.mineBlock(bc.miningDifficulty);
+  bc.chain.push(duplicateBlock);
+
+  assert.equal(bc.isChainValid(), false);
+});
+
+test('prevents pending transactions from overspending the balance', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  bc.mineBlock(miner.publicKey, 'Fund miner');
+
+  const recipient = new Wallet();
+  const first = new Transaction(miner.publicKey, recipient.publicKey, 30);
+  first.signTransaction(miner);
+  bc.addTransaction(first);
+
+  const secondRecipient = new Wallet();
+  const second = new Transaction(miner.publicKey, secondRecipient.publicKey, 30);
+  second.signTransaction(miner);
+
+  assert.throws(() => bc.addTransaction(second), /insufficient balance/i);
+  assert.equal(bc.pendingTransactions.length, 1);
+});
+
+
+test('mines pending transactions and clears the queue', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+  const sender = new Wallet();
+  const recipient = new Wallet();
+
+  bc.mineBlock(sender.publicKey, 'Fund sender');
+
+  const tx = new Transaction(
+    sender.publicKey,
+    recipient.publicKey,
+    10
+  );
+  tx.signTransaction(sender);
+  bc.addTransaction(tx);
+
+  const block = bc.minePendingTransactions(miner.publicKey);
+
+  assert.equal(block.data.length, 1);
+  assert.equal(bc.pendingTransactions.length, 0);
+  assert.equal(bc.isChainValid(), true);
+});
+
+test('awards mining reward when mining pending transactions', () => {
+  const bc = new Blockchain();
+  const sender = new Wallet();
+  const miner = new Wallet();
+  const recipient = new Wallet();
+
+  bc.mineBlock(sender.publicKey, 'Fund sender');
+
+  const tx = new Transaction(
+    sender.publicKey,
+    recipient.publicKey,
+    5
+  );
+  tx.signTransaction(sender);
+  bc.addTransaction(tx);
+
+  bc.minePendingTransactions(miner.publicKey);
+
+  assert.equal(bc.getBalance(miner.publicKey), 50);
+});
+
+test('updates recipient balance after mining pending transactions', () => {
+  const bc = new Blockchain();
+  const sender = new Wallet();
+  const miner = new Wallet();
+  const recipient = new Wallet();
+
+  bc.mineBlock(sender.publicKey, 'Fund sender');
+
+  const tx = new Transaction(
+    sender.publicKey,
+    recipient.publicKey,
+    10
+  );
+  tx.signTransaction(sender);
+  bc.addTransaction(tx);
+
+  bc.minePendingTransactions(miner.publicKey);
+
+  assert.equal(bc.getBalance(recipient.publicKey), 10);
+});
+
+test('rejects mining when there are no pending transactions', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+
+  assert.throws(
+    () => bc.minePendingTransactions(miner.publicKey),
+    /no pending transactions/i
+  );
+});
+
+
+test('rejects an empty blockchain', () => {
+  const bc = new Blockchain();
+  bc.chain = [];
+
+  assert.equal(bc.isChainValid(), false);
+});
+
+test('rejects an empty transaction batch', () => {
+  const bc = new Blockchain();
+  bc.addBlock([]);
+
+  assert.equal(bc.isChainValid(), false);
+});
+
+test('rejects a transaction batch containing an invalid item', () => {
+  const bc = new Blockchain();
+  bc.addBlock(['not a transaction']);
+
+  assert.equal(bc.isChainValid(), false);
+});
+
+
+test('rejects a mined block whose nonce is changed without valid proof of work', () => {
+  const bc = new Blockchain();
+  const miner = new Wallet();
+
+  bc.mineBlock(miner.publicKey, 'Proof of work test');
+
+  const block = bc.chain[1];
+  do {
+    block.nonce += 1;
+    block.hash = block.calculateBlockHash();
+  } while (block.hasValidProof(bc.miningDifficulty));
+
+  assert.equal(block.hasValidProof(bc.miningDifficulty), false);
+  assert.equal(bc.isChainValid(), false);
+});
+
+test('rejects invalid mining difficulty values', () => {
+  const block = new Block(1, new Date().toISOString(), 'Mining test', '0');
+
+  for (const difficulty of [0, -1, 1.5, 7, NaN]) {
+    assert.equal(block.hasValidProof(difficulty), false);
+    assert.throws(() => block.mineBlock(difficulty), /difficulty/i);
+  }
+});
+
+test('rejects a modified genesis previous hash even if its hash is recalculated', () => {
+  const bc = new Blockchain();
+
+  bc.chain[0].previousHash = 'tampered';
+  bc.chain[0].hash = bc.chain[0].calculateBlockHash();
+
+  assert.equal(bc.isChainValid(), false);
+});
+
+test('rejects a non-reward block with a modified nonce and recalculated hash', () => {
+  const bc = new Blockchain();
+
+  const block = bc.addBlock('Ordinary block');
+  block.nonce = 1;
+  block.hash = block.calculateBlockHash();
+
+  assert.equal(bc.isChainValid(), false);
+});
