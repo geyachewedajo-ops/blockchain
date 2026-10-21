@@ -265,12 +265,4 @@ test('rejects a forged mining reward even when the block hash is recalculated', 
   assert.equal(blockchain.isChainValid(), false);
 });
 
-test('rejects a forged mining reward even when the block hash is recalculated', () => {
-  const blockchain = new Blockchain();
 
-  const block = blockchain.mineBlock('miner-address', 'Mining test');
-  block.reward.amount = 500;
-  block.hash = block.calculateBlockHash();
-
-  assert.equal(blockchain.isChainValid(), false);
-});
