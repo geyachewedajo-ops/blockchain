@@ -150,6 +150,29 @@ test('rejects an unsigned transaction', () => {
   assert.equal(bc.chain.length, 1);
 });
 
+test('rejects a tampered transaction even when its block hash is recalculated', () => {
+  const bc = new Blockchain();
+  const wallet = new Wallet();
+  const recipient = new Wallet();
+  const attacker = new Wallet();
+
+  bc.mineBlock(wallet.publicKey, 'Initial mining reward');
+
+  const tx = new Transaction(
+    wallet.publicKey,
+    recipient.publicKey,
+    10
+  );
+  tx.signTransaction(wallet);
+  bc.addBlock(tx);
+
+  const transactionBlock = bc.getLatestBlock();
+  transactionBlock.data.from = attacker.publicKey;
+  transactionBlock.hash = transactionBlock.calculateBlockHash();
+
+  assert.equal(bc.isChainValid(), false);
+});
+
 test('detects a modified transaction sender', () => {
   const wallet = new Wallet();
   const recipient = new Wallet();

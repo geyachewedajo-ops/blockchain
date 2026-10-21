@@ -109,6 +109,16 @@ class Blockchain {
     for (let i = 0; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
 
+      // Every transaction in the chain must remain valid and signed.
+      if (currentBlock.data instanceof Transaction) {
+        if (
+          !currentBlock.data.isValid() ||
+          !currentBlock.data.verifySignature()
+        ) {
+          return false;
+        }
+      }
+
       // The genesis block must not create mining rewards.
       if (i === 0 && currentBlock.reward != null) {
         return false;
