@@ -150,16 +150,19 @@ test('rejects an unsigned transaction', () => {
   assert.equal(bc.chain.length, 1);
 });
 
-test('rejects an unsigned transaction', () => {
-  const bc = new Blockchain();
-  const tx = new Transaction('Alice', 'Bob', 100);
-
-  assert.throws(
-    () => bc.addBlock(tx),
-    /signature/i
+test('detects a modified transaction sender', () => {
+  const wallet = new Wallet();
+  const recipient = new Wallet();
+  const tx = new Transaction(
+    wallet.publicKey,
+    recipient.publicKey,
+    10
   );
 
-  assert.equal(bc.chain.length, 1);
+  tx.signTransaction(wallet);
+  tx.from = recipient.publicKey;
+
+  assert.equal(tx.verifySignature(), false);
 });
 
 test('rejects spending when the sender has no balance', () => {
