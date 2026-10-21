@@ -360,3 +360,26 @@ test('rejects duplicate block indexes with duplicate mining rewards', () => {
 
   assert.equal(blockchain.isChainValid(), false);
 });
+
+test('rejects a repeated mining reward in a later block', () => {
+  const blockchain = new Blockchain();
+  const miner = new Wallet();
+
+  const firstBlock = blockchain.mineBlock(
+    miner.publicKey,
+    'First mining reward'
+  );
+
+  const secondBlock = blockchain.addBlock(
+    'Second block without mining'
+  );
+
+  // Forge another reward for the same miner in a different block.
+  secondBlock.reward = {
+    to: firstBlock.reward.to,
+    amount: blockchain.miningReward,
+  };
+  secondBlock.hash = secondBlock.calculateBlockHash();
+
+  assert.equal(blockchain.isChainValid(), false);
+});
