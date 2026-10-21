@@ -424,7 +424,12 @@ const server = http.createServer((req, res) => {
   res.end('Not found');
 });
 
-server.listen(3000, '127.0.0.1', () => {
-  console.log('Blockchain Explorer running at http://127.0.0.1:3000');
-  console.log('Keep Termux running while you use the browser.');
-});
+module.exports = { server, blockchain };
+
+if (require.main === module) {
+  const port = Number(process.env.PORT) || 3000;
+  server.listen(port, '127.0.0.1', () => {
+    console.log('Blockchain Explorer running at http://127.0.0.1:' + port);
+    console.log('Keep Termux running while you use the browser.');
+  });
+}
