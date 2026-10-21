@@ -150,6 +150,30 @@ test('rejects an unsigned transaction', () => {
   assert.equal(bc.chain.length, 1);
 });
 
+test('rejects an unfunded transaction inserted directly into the chain', () => {
+  const bc = new Blockchain();
+  const sender = new Wallet();
+  const recipient = new Wallet();
+
+  const tx = new Transaction(
+    sender.publicKey,
+    recipient.publicKey,
+    10
+  );
+  tx.signTransaction(sender);
+
+  const forgedBlock = new Block(
+    1,
+    new Date().toISOString(),
+    tx,
+    bc.getLatestBlock().hash
+  );
+
+  bc.chain.push(forgedBlock);
+
+  assert.equal(bc.isChainValid(), false);
+});
+
 test('rejects a tampered transaction even when its block hash is recalculated', () => {
   const bc = new Blockchain();
   const wallet = new Wallet();

@@ -106,17 +106,30 @@ class Blockchain {
   }
 
   isChainValid() {
+    const balances = new Map();
+
     for (let i = 0; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
 
-      // Every transaction in the chain must remain valid and signed.
+      // Rebuild balances from the ledger in block order.
       if (currentBlock.data instanceof Transaction) {
-        if (
-          !currentBlock.data.isValid() ||
-          !currentBlock.data.verifySignature()
-        ) {
+        const tx = currentBlock.data;
+
+        if (!tx.isValid() || !tx.verifySignature()) {
           return false;
         }
+
+        const senderBalance = balances.get(tx.from) || 0;
+
+        if (senderBalance < tx.amount) {
+          return false;
+        }
+
+        balances.set(tx.from, senderBalance - tx.amount);
+        balances.set(
+          tx.to,
+          (balances.get(tx.to) || 0) + tx.amount
+        );
       }
 
       // The genesis block must not create mining rewards.
@@ -149,6 +162,12 @@ class Blockchain {
         if (currentBlock.previousHash !== previousBlock.hash) {
           return false;
         }
+      }
+
+      // Credit the validated mining reward after checking the block.
+      if (currentBlock.reward) {
+        const { to, amount } = currentBlock.reward;
+        balances.set(to, (balances.get(to) || 0) + amount);
       }
     }
 
