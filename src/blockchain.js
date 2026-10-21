@@ -3,25 +3,7 @@ const Transaction = require('./transaction');
 
 class Blockchain {
   getBalanceOfAddress(address) {
-    let balance = 0;
-
-    for (const block of this.chain) {
-      const transaction = block.data;
-
-      if (!(transaction instanceof Transaction)) {
-        continue;
-      }
-
-      if (transaction.to === address) {
-        balance += transaction.amount;
-      }
-
-      if (transaction.from === address) {
-        balance -= transaction.amount;
-      }
-    }
-
-    return balance;
+    return this.getBalance(address);
   }
 
   constructor() {
