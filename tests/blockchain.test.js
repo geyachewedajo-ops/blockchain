@@ -314,3 +314,49 @@ test('rejects a forged mining reward even when the block hash is recalculated', 
 
   assert.equal(blockchain.isChainValid(), false);
 });
+
+test('rejects duplicate mining rewards for the same block', () => {
+  const blockchain = new Blockchain();
+  const miner = new Wallet();
+
+  const block = blockchain.mineBlock(
+    miner.publicKey,
+    'Mining test'
+  );
+
+  // Attempt to claim the same block reward twice.
+  block.reward = [
+    { to: miner.publicKey, amount: blockchain.miningReward },
+    { to: miner.publicKey, amount: blockchain.miningReward },
+  ];
+
+  block.hash = block.calculateBlockHash();
+
+  assert.equal(blockchain.isChainValid(), false);
+});
+
+test('rejects duplicate block indexes with duplicate mining rewards', () => {
+  const blockchain = new Blockchain();
+  const miner = new Wallet();
+
+  const originalBlock = blockchain.mineBlock(
+    miner.publicKey,
+    'Original mining reward'
+  );
+
+  const duplicateBlock = new Block(
+    originalBlock.index,
+    new Date().toISOString(),
+    'Duplicate mining reward',
+    originalBlock.hash
+  );
+
+  duplicateBlock.reward = {
+    to: miner.publicKey,
+    amount: blockchain.miningReward,
+  };
+  duplicateBlock.hash = duplicateBlock.calculateBlockHash();
+  blockchain.chain.push(duplicateBlock);
+
+  assert.equal(blockchain.isChainValid(), false);
+});

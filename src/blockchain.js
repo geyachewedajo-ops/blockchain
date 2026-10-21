@@ -111,6 +111,11 @@ class Blockchain {
     for (let i = 0; i < this.chain.length; i++) {
       const currentBlock = this.chain[i];
 
+      // Block indexes must be sequential, starting at zero.
+      if (currentBlock.index !== i) {
+        return false;
+      }
+
       // Rebuild balances from the ledger in block order.
       if (currentBlock.data instanceof Transaction) {
         const tx = currentBlock.data;
