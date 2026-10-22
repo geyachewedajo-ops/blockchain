@@ -44,6 +44,23 @@ async function sha256(text) {
 }
 
 const BrowserWallet = {
+  importFromPrivateKey(privateKeyHex) {
+    const privateKey = hexToBytes(privateKeyHex.trim());
+
+    if (privateKey.length !== 32) {
+      throw new Error(
+        'Private key must be 32 bytes (64 hexadecimal characters).'
+      );
+    }
+
+    const rawPublicKey = secp256k1.getPublicKey(privateKey, false);
+
+    return {
+      publicKey: publicKeyToPem(rawPublicKey),
+      privateKey: bytesToHex(privateKey)
+    };
+  },
+
   create() {
     const privateKey = secp256k1.utils.randomSecretKey();
     const rawPublicKey = secp256k1.getPublicKey(privateKey, false);

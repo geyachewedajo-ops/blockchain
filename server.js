@@ -76,6 +76,13 @@ const page = `<!DOCTYPE html>
       <p class="muted">Generate a new demo wallet address.</p>
       <button id="createWalletButton" type="button">Create wallet</button>
       <p id="walletResult" aria-live="polite"></p>
+      <hr>
+      <h3>Import existing wallet</h3>
+      <label for="privateKeyInput">Your saved private key (keep secret)</label>
+      <textarea id="privateKeyInput" rows="3" autocomplete="off"
+        placeholder="Paste your saved private key here"></textarea>
+      <button id="importWalletButton" type="button">Import wallet</button>
+      <p id="importWalletResult" aria-live="polite"></p>
     </div>
   </div>
 
@@ -83,9 +90,22 @@ const page = `<!DOCTYPE html>
     <h2>Wallet balance checker</h2>
     <div class="card">
       <label for="address">Public wallet address</label>
-      <input id="address" autocomplete="off" placeholder="Paste a public wallet address">
+      <textarea id="address" rows="4" autocomplete="off" placeholder="Paste the full public key, including BEGIN/END lines"></textarea>
       <button id="balanceButton" type="button">Check balance</button>
       <p id="balanceResult" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Send coins</h2>
+    <div class="card">
+      <p class="muted">Send a digitally signed transaction from your saved browser wallet.</p>
+      <label for="recipient">Recipient public key (address)</label>
+      <textarea id="recipient" rows="4" autocomplete="off" placeholder="Paste recipient public key"></textarea>
+      <label for="sendAmount">Amount</label>
+      <input id="sendAmount" type="number" min="0.000001" step="any" placeholder="Enter amount">
+      <button id="sendButton" type="button">Sign and send</button>
+      <p id="sendResult" aria-live="polite"></p>
     </div>
   </div>
 
@@ -235,6 +255,35 @@ const page = `<!DOCTYPE html>
       }
     }
 
+    function importWallet() {
+      const input = byId('privateKeyInput');
+      const output = byId('importWalletResult');
+      output.textContent = '';
+      output.className = 'muted';
+
+      try {
+        if (!window.BrowserWallet ||
+            typeof window.BrowserWallet.importFromPrivateKey !== 'function') {
+          throw new Error('Wallet import method is unavailable. Refresh after restarting the server.');
+        }
+
+        const privateKey = input.value.trim();
+        if (!privateKey) throw new Error('Paste your saved private key first.');
+
+        const wallet = window.BrowserWallet.importFromPrivateKey(privateKey);
+        localStorage.setItem('blockchainWallet', JSON.stringify(wallet));
+        byId('address').value = wallet.publicKey;
+        input.value = '';
+
+        output.textContent =
+          'Wallet imported in this browser. Check its balance before sending coins.';
+        output.className = 'valid';
+      } catch (error) {
+        output.textContent = error.message || 'Wallet import failed.';
+        output.className = 'error';
+      }
+    }
+
     async function checkBalance() {
       const address = byId('address').value.trim();
       const output = byId('balanceResult');
@@ -258,6 +307,97 @@ const page = `<!DOCTYPE html>
         output.className = 'error';
       }
     }
+
+    async function sendCoins() {
+      const output = byId('sendResult');
+      const button = byId('sendButton');
+      output.textContent = '';
+      output.className = 'muted';
+
+      const recipient = byId('recipient').value.trim();
+      const amount = Number(byId('sendAmount').value);
+
+      if (!recipient) {
+        output.textContent = 'Enter the recipient public key.';
+        output.className = 'error';
+        return;
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        output.textContent = 'Enter an amount greater than zero.';
+        output.className = 'error';
+        return;
+      }
+
+      let wallet;
+      try {
+        wallet = JSON.parse(localStorage.getItem('blockchainWallet') || 'null');
+      } catch {
+        wallet = null;
+      }
+
+      if (!wallet || !wallet.privateKey || !wallet.publicKey) {
+        output.textContent = 'Create a browser wallet first.';
+        output.className = 'error';
+        return;
+      }
+
+      if (recipient === wallet.publicKey) {
+        output.textContent = 'Choose a different recipient address.';
+        output.className = 'error';
+        return;
+      }
+
+      button.disabled = true;
+      output.textContent = 'Checking balance and signing transaction...';
+
+      try {
+        const balanceResponse = await fetch(
+          '/api/balance?address=' + encodeURIComponent(wallet.publicKey),
+          { cache: 'no-store' }
+        );
+        const balanceData = await balanceResponse.json();
+        if (!balanceResponse.ok) {
+          throw new Error(balanceData.error || 'Could not check wallet balance.');
+        }
+
+        if (amount > balanceData.balance) {
+          throw new Error(
+            'Insufficient balance. Your wallet has ' + balanceData.balance + ' coins.'
+          );
+        }
+
+        const transaction = await window.BrowserWallet.signTransaction(
+          wallet, recipient, amount
+        );
+
+        const response = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(transaction)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Transaction rejected.');
+        }
+
+        output.textContent =
+          (result.message || 'Transaction accepted.') +
+          '. It is pending mining; balances change after it is mined.';
+        output.className = 'valid';
+        byId('sendAmount').value = '';
+        await loadChain();
+      } catch (error) {
+        output.textContent = error.message || 'Could not send transaction.';
+        output.className = 'error';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    byId('importWalletButton').addEventListener('click', importWallet);
+    byId('sendButton').addEventListener('click', sendCoins);
 
     byId('refreshButton').addEventListener('click', loadChain);
     byId('createWalletButton').addEventListener('click', createWallet);
@@ -354,6 +494,18 @@ const server = http.createServer((req, res) => {
     }
 
     return sendJSON(200, block);
+  }
+
+  if (req.method === 'GET' && pathname === '/api/wallet/public-address') {
+    const fs = require('fs');
+    const walletPath = require('path').join(__dirname, 'wallet.json');
+
+    try {
+      const savedWallet = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
+      return sendJSON(200, { address: savedWallet.address });
+    } catch (error) {
+      return sendJSON(404, { error: 'Saved wallet address not available' });
+    }
   }
 
   if (req.method === 'GET' && pathname === '/api/balance') {

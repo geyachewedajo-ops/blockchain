@@ -18,3 +18,8 @@ coverage/
 
 # Local server backups
 server.js.wallet-backup
+
+# Recipient wallet files and local balance backups
+recipient-wallet.json
+recipient-public.txt
+server.js.balance-backup

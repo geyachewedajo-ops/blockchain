@@ -325,6 +325,7 @@ class Blockchain {
   }
 
   getBalance(address) {
+    address = typeof address === 'string' ? address.trim() : address;
     let balance = 0;
 
     for (const block of this.chain) {
@@ -335,11 +336,11 @@ class Blockchain {
       for (const tx of transactions) {
         if (!(tx instanceof Transaction)) continue;
 
-        if (tx.to === address) balance += tx.amount;
-        if (tx.from === address) balance -= tx.amount;
+        if (typeof tx.to === 'string' && tx.to.trim() === address) balance += tx.amount;
+        if (typeof tx.from === 'string' && tx.from.trim() === address) balance -= tx.amount;
       }
 
-      if (block.reward && block.reward.to === address) {
+      if (block.reward && typeof block.reward.to === 'string' && block.reward.to.trim() === address) {
         balance += block.reward.amount;
       }
     }
