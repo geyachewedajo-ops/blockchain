@@ -543,16 +543,22 @@ const page = `<!DOCTYPE html>
 const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url.split('?')[0] === '/api/blocks') {
     let body = '';
+    let receivedBytes = 0;
+    let tooLarge = false;
 
     req.on('data', chunk => {
-      body += chunk;
-
-      if (body.length > 10000) {
-        req.destroy();
+      if (tooLarge) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > 10000) {
+        tooLarge = true;
+        sendJSON(413, { error: 'Request body too large' });
+        return;
       }
+      body += chunk;
     });
 
     req.on('end', () => {
+      if (tooLarge) return;
       try {
         const payload = JSON.parse(body);
 
@@ -672,13 +678,22 @@ const server = http.createServer((req, res) => {
   // Accept a digitally signed transaction and add it to the chain.
   if (req.method === 'POST' && pathname === '/api/transactions') {
     let body = '';
+    let receivedBytes = 0;
+    let tooLarge = false;
 
     req.on('data', chunk => {
+      if (tooLarge) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > 20000) {
+        tooLarge = true;
+        sendJSON(413, { error: 'Request body too large' });
+        return;
+      }
       body += chunk;
-      if (body.length > 20000) req.destroy();
     });
 
     req.on('end', () => {
+      if (tooLarge) return;
       try {
         const payload = JSON.parse(body);
 
@@ -716,13 +731,22 @@ const server = http.createServer((req, res) => {
   // Mine a block and award the configured mining reward.
   if (req.method === 'POST' && pathname === '/api/mine') {
     let body = '';
+    let receivedBytes = 0;
+    let tooLarge = false;
 
     req.on('data', chunk => {
+      if (tooLarge) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > 10000) {
+        tooLarge = true;
+        sendJSON(413, { error: 'Request body too large' });
+        return;
+      }
       body += chunk;
-      if (body.length > 10000) req.destroy();
     });
 
     req.on('end', () => {
+      if (tooLarge) return;
       try {
         const payload = JSON.parse(body);
 
