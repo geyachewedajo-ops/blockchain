@@ -4,15 +4,75 @@ const Transaction = require('./src/transaction');
 const Wallet = require('./src/wallet');
 
 const blockchain = new Blockchain();
+const Block = require('./src/block');
+const fs = require('node:fs');
+const path = require('node:path');
 
-// Create sample data for the explorer.
-blockchain.mineBlock('demo-miner', {
-  message: 'First demo block',
-});
+const chainFile = path.join(__dirname, 'blockchain-data.json');
 
-blockchain.addBlock({
-  message: 'Second demo block',
-});
+function saveBlockchain() {
+  const data = {
+    chain: blockchain.chain,
+    pendingTransactions: blockchain.pendingTransactions
+  };
+
+  const temporaryFile = chainFile + '.tmp';
+  fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), {
+    mode: 0o600
+  });
+  fs.renameSync(temporaryFile, chainFile);
+}
+
+function loadBlockchain() {
+  if (!fs.existsSync(chainFile)) return;
+
+  const saved = JSON.parse(fs.readFileSync(chainFile, 'utf8'));
+
+  if (!saved || !Array.isArray(saved.chain) || saved.chain.length === 0) {
+    throw new Error('Saved blockchain file is invalid');
+  }
+
+  const restoreTransaction = item => {
+    const transaction = new Transaction(item.from, item.to, item.amount);
+    transaction.signature = item.signature;
+    return transaction;
+  };
+
+  const restoredChain = saved.chain.map(item => {
+    const block = new Block(
+      item.index,
+      item.timestamp,
+      Array.isArray(item.data)
+        ? item.data.map(restoreTransaction)
+        : item.data,
+      item.previousHash
+    );
+
+    block.reward = item.reward ?? null;
+    block.nonce = item.nonce;
+    block.hash = item.hash;
+    return block;
+  });
+
+  const restoredPending = Array.isArray(saved.pendingTransactions)
+    ? saved.pendingTransactions.map(restoreTransaction)
+    : [];
+
+  const previousChain = blockchain.chain;
+  blockchain.chain = restoredChain;
+
+  if (!blockchain.isChainValid()) {
+    blockchain.chain = previousChain;
+    throw new Error('Saved blockchain failed validation; refusing to load it');
+  }
+
+  blockchain.pendingTransactions = restoredPending;
+  blockchain.rewardedBlocks = new Set(
+    restoredChain.filter(block => block.reward).map(block => block.index)
+  );
+}
+
+loadBlockchain();
 
 const page = `<!DOCTYPE html>
 <html lang="en">
@@ -69,6 +129,15 @@ const page = `<!DOCTYPE html>
 
   <button id="refreshButton" type="button">Refresh explorer</button>
   <p class="muted" id="updated">Not yet refreshed</p>
+
+  <div class="section">
+    <h2>Mine a block</h2>
+    <div class="card">
+      <p class="muted">Mine a block and send the reward to your selected browser wallet.</p>
+      <button id="mineButton" type="button">Mine Block</button>
+      <p id="mineResult" aria-live="polite" class="muted"></p>
+    </div>
+  </div>
 
   <div class="section">
     <h2>Create a wallet</h2>
@@ -400,7 +469,65 @@ const page = `<!DOCTYPE html>
     byId('sendButton').addEventListener('click', sendCoins);
 
     byId('refreshButton').addEventListener('click', loadChain);
+    byId('mineButton').addEventListener('click', mineBlock);
     byId('createWalletButton').addEventListener('click', createWallet);
+
+    async function mineBlock() {
+      const button = byId('mineButton');
+      const output = byId('mineResult');
+      let wallet;
+
+      try {
+        wallet = JSON.parse(localStorage.getItem('blockchainWallet') || 'null');
+      } catch {
+        wallet = null;
+      }
+
+      if (!wallet || !wallet.publicKey) {
+        output.textContent = 'Create or import a browser wallet first.';
+        output.className = 'error';
+        return;
+      }
+
+      button.disabled = true;
+      output.textContent = 'Mining block...';
+      output.className = 'muted';
+
+      try {
+        const response = await fetch('/api/mine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ minerAddress: wallet.publicKey })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Mining failed.');
+        }
+
+        output.textContent =
+          'Block mined successfully! Reward: ' +
+          result.reward.amount + ' coins.';
+        output.className = 'valid';
+        await loadChain();
+        await checkBalanceForWallet(wallet.publicKey);
+      } catch (error) {
+        output.textContent = error.message || 'Mining failed.';
+        output.className = 'error';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function checkBalanceForWallet(address) {
+      const response = await fetch(
+        '/api/balance?address=' + encodeURIComponent(address),
+        { cache: 'no-store' }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Balance lookup failed.');
+      byId('mineResult').textContent += ' Wallet balance: ' + result.balance + ' coins.';
+    }
     byId('balanceButton').addEventListener('click', checkBalance);
     byId('address').addEventListener('keydown', event => {
       if (event.key === 'Enter') checkBalance();
@@ -441,6 +568,7 @@ const server = http.createServer((req, res) => {
         }
 
         const block = blockchain.addBlock(payload.data);
+        saveBlockchain();
         return sendJSON(201, {
           message: 'Block added successfully',
           block
@@ -567,6 +695,7 @@ const server = http.createServer((req, res) => {
         transaction.signature = payload.signature;
 
         const queuedTransaction = blockchain.addTransaction(transaction);
+        saveBlockchain();
 
         return sendJSON(202, {
           message: 'Signed transaction accepted and queued for mining',
@@ -603,6 +732,8 @@ const server = http.createServer((req, res) => {
               payload && payload.minerAddress,
               { message: 'Block mined through API' }
             );
+
+        saveBlockchain();
 
         return sendJSON(201, {
           message: 'Block mined successfully',

@@ -23,3 +23,5 @@ server.js.wallet-backup
 recipient-wallet.json
 recipient-public.txt
 server.js.balance-backup
+blockchain-data.json
+blockchain-data.json.tmp
