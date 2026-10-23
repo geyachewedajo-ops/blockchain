@@ -1,157 +1,149 @@
-Blockchain Learning Project
+# JavaScript Blockchain Platform
 
-A simple educational blockchain built with Node.js and JavaScript to explore block hashing, digital signatures, wallet balances, transactions, and mining rewards.
+A blockchain implementation built with Node.js and JavaScript, featuring cryptographic hashing, digital signatures, wallet management, transaction validation, proof-of-work mining, and persistent blockchain storage.
 
-Features
+**Developer:** Wedajo Getachew
+**GitHub:** https://github.com/geyachewedajo-ops
+**Repository:** https://github.com/geyachewedajo-ops/blockchain
 
-- SHA-256 hashing — generates a hash for each block.
-- Linked blocks — each block stores the previous block's hash.
-- Digital wallets — creates public/private key pairs using elliptic-curve cryptography.
-- Signed transactions — verifies transaction signatures before accepting transactions.
-- Balance tracking — calculates balances from transactions and mining rewards.
-- Mining rewards — awards 50 coins to a miner in the current implementation.
-- Tampering detection — checks block hashes and links to detect unauthorized changes.
-- REST API — provides endpoints for viewing blocks, checking balances, creating demo wallets, submitting transactions, and mining.
-- Automated tests — tests blockchain validity, signatures, balances, transactions, and mining rewards.
+## Features
 
-Technologies
+- Blockchain creation and block validation
+- SHA-256 cryptographic hashing
+- Linked blocks using previous-block hashes
+- Wallet creation and public-key addresses
+- Digitally signed transaction validation
+- Wallet balance calculation
+- Proof-of-work mining
+- Mining rewards
+- Persistent blockchain storage
+- Browser-based blockchain explorer
+- REST API for blockchain operations
+- Automated tests using Node.js
 
+## Technologies
+
+- JavaScript
 - Node.js
-- JavaScript (CommonJS)
-- Node.js built-in HTTP server
-- Node.js "crypto" module
+- Node.js HTTP server
+- Node.js Crypto module
+- @noble/curves
 - SHA-256
-- Elliptic-curve digital signatures
 - Node.js test runner
 
-Project Structure
+## Requirements
 
-blockchain/
-├── src/
-│   ├── block.js
-│   ├── blockchain.js
-│   ├── transaction.js
-│   ├── wallet.js
-│   └── utils.js
-├── tests/
-│   └── blockchain.test.js
-├── demos/
-│   ├── link-test.js
-│   ├── signature-test.js
-│   └── tampering-test.js
-├── server.js
-├── package.json
-├── .gitignore
-└── README.md
-
-Requirements
-
-- Node.js (a recent supported version)
+- Node.js
 - npm
-- Termux on Android, or a computer with a terminal
+- Git
+- Termux or another terminal
 
-Installation
+## Installation
 
-Clone the repository:
+Clone the repository and install dependencies:
 
+```bash
 git clone https://github.com/geyachewedajo-ops/blockchain.git
 cd blockchain
-
-Install dependencies if required:
-
 npm install
+```
 
-Run the Tests
+If you already cloned the project, open its directory and run `npm install`.
 
+## Run Tests
+
+```bash
 npm test
+```
 
-The project passed 24 automated tests during development, covering blockchain validity, transaction validation, digital signatures, balance calculations, mining rewards, and tampering detection.
+The project previously passed 51 tests with zero failures. Run the tests again to verify the current version.
 
-Start the API Server
+## Start the Blockchain Explorer
 
+```bash
 npm start
+```
 
-The server is configured to listen on:
+Open this address in a browser on the same device:
 
 http://127.0.0.1:3000
 
-Keep the server running in your terminal while testing the API.
+Keep the Node.js server running while using the explorer.
 
-API Endpoints
+## Blockchain Persistence
 
-Method| Endpoint| Purpose
-GET| "/api/chain"| Retrieve the blockchain and its validity status
-GET| "/api/blocks"| Retrieve blocks
-GET| "/api/validate"| Check blockchain validity
-GET| "/api/blocks/:index"| Retrieve a block by index
-GET| "/api/balance/:address"| Check a wallet balance
-GET| "/api/balance?address=..."| Check a balance using a public-key address
-POST| "/api/wallets"| Create a demo wallet
-POST| "/api/transactions"| Submit a signed transaction
-POST| "/api/mine"| Mine a demo block and award a reward
+The application saves blockchain data locally in `blockchain-data.json` and attempts to restore the saved chain when the server starts.
 
-Example: Check Blockchain Validity
+Keep backups of important local data. Do not commit wallet files, private keys, or other secrets to GitHub.
 
-With the server running, open another terminal and run:
+## REST API
 
-curl http://127.0.0.1:3000/api/validate
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/chain` | Retrieve the blockchain |
+| GET | `/api/blocks` | Retrieve blocks |
+| GET | `/api/blocks/:index` | Retrieve a block by index |
+| GET | `/api/validate` | Validate the blockchain |
+| GET | `/api/wallet/public-address` | Retrieve the configured public address |
+| GET | `/api/balance?address=...` | Check a wallet balance |
+| GET | `/api/balance/:address` | Check a balance by address |
+| POST | `/api/wallets` | Create a demo wallet |
+| POST | `/api/transactions` | Submit a signed transaction |
+| POST | `/api/mine` | Mine a block and process its reward |
 
-Example: View the Blockchain
+### Check Blockchain Validity
 
-curl http://127.0.0.1:3000/api/chain
+```bash
+curl -sS http://127.0.0.1:3000/api/validate
+```
 
-Example: Check a Wallet Balance
+### View the Blockchain
 
-Replace "YOUR_PUBLIC_KEY" with the appropriate public key:
+```bash
+curl -sS http://127.0.0.1:3000/api/chain
+```
 
-curl --get \
-  --data-urlencode "address=YOUR_PUBLIC_KEY" \
+### Check a Wallet Balance
+
+```bash
+curl -sS -G --data-urlencode "address=YOUR_PUBLIC_KEY" \
   http://127.0.0.1:3000/api/balance
+```
 
-Security Tests
+Replace `YOUR_PUBLIC_KEY` with a public wallet address. Never share a private key.
 
-The demonstration scripts show how the blockchain responds to attempted tampering.
+## Demonstration Scripts
 
-Run the individual demonstrations:
-
+```bash
 node demos/link-test.js
 node demos/signature-test.js
 node demos/tampering-test.js
+```
 
-These tests demonstrate:
+These scripts demonstrate blockchain integrity, signature verification, and tampering detection.
 
-1. Detection of a broken previous-block hash link.
-2. Rejection of a modified signed transaction.
-3. Detection of changes to recorded block data.
+## Security and Limitations
 
-Current Limitations
+This project is a blockchain implementation for development and demonstration purposes. It is not a production-ready cryptocurrency.
 
-This is a learning project, not a production cryptocurrency.
+- It does not implement a complete distributed peer-to-peer network.
+- API security and wallet management require further review.
+- The project has not been independently security-audited.
+- Mining rewards are demonstration coins, not real-world currency.
+- Local persistence does not replace secure backups.
+- Never publish private keys, passwords, or wallet files.
+- Do not use real funds with this implementation.
 
-- Blockchain data is stored in memory and is reset when the server restarts.
-- There is no distributed peer-to-peer network or consensus protocol.
-- Mining is a demonstration mechanism, not proof-of-work mining.
-- Wallet management and API security need further hardening.
-- The blockchain has not been independently security-audited.
+The server listens on localhost by default. Review security carefully before exposing it to other devices or the internet.
 
-Do not expose the server publicly or use real funds with this implementation. Never publish private keys, wallet files, passwords, or other secrets.
+## Future Improvements
 
-Future Improvements
+- Expand automated test coverage
+- Improve transaction history and block details
+- Strengthen API authentication and authorization
+- Improve error handling and documentation
+- Develop a modern web dashboard
 
-- Add persistent blockchain storage.
-- Strengthen block, transaction, and mining-reward validation.
-- Improve API security and error handling.
-- Build a React dashboard for blocks, transactions, and wallet balances.
-- Explore Solidity smart contracts and Web3 integration.
+## License
 
-Author
-
-Wedajo Getachew
-
-Full-Stack Developer | Node.js | JavaScript | Blockchain Learning
-
-GitHub: https://github.com/geyachewedajo-ops
-
-License
-
-See the repository's "package.json" and any accompanying license file for the project's licensing information.
+The project declares the ISC license in `package.json`. Check the repository for a license file.
