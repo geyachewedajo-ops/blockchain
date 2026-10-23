@@ -43,6 +43,34 @@ test('API rejects invalid signatures and processes valid signed transactions', a
 
     assert.equal(ready, true, `Test server did not start: ${logs}`);
 
+    // Malformed JSON must receive a clean 400 response.
+    for (const endpoint of ['/api/blocks', '/api/transactions', '/api/mine']) {
+      const response = await fetch(`${base}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{invalid json'
+      });
+      assert.equal(response.status, 400, `${endpoint} should reject malformed JSON`);
+    }
+
+    // Oversized request bodies must receive 413, not crash or hang.
+    const oversizedRequests = [
+      ['/api/blocks', 'x'.repeat(10001)],
+      ['/api/transactions', 'x'.repeat(20001)],
+      ['/api/mine', 'x'.repeat(10001)]
+    ];
+
+    for (const [endpoint, body] of oversizedRequests) {
+      const response = await fetch(`${base}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      });
+      assert.equal(response.status, 413, `${endpoint} should reject oversized bodies`);
+      const result = await response.json();
+      assert.equal(result.error, 'Request body too large');
+    }
+
     const sender = new Wallet();
     const receiver = new Wallet();
     const miner = new Wallet();
